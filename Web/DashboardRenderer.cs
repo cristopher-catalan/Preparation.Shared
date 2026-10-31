@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 
@@ -5,6 +6,13 @@ namespace Preparation.Shared.Web;
 
 public static class DashboardRenderer
 {
+    private static readonly ConcurrentDictionary<string, Func<string>> CustomViews = new(StringComparer.OrdinalIgnoreCase);
+
+    public static void RegisterCustomView(string key, Func<string> viewFactory)
+    {
+        CustomViews[key] = viewFactory;
+    }
+
     private sealed record Example(string Label, string Method, string Path, string Body = "");
     private static readonly Dictionary<string, Example[]> Examples = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -77,6 +85,9 @@ public static class DashboardRenderer
 
     public static string Render(ProjectInfo info)
     {
+        if (CustomViews.TryGetValue(info.Key, out var customView))
+            return customView();
+
         var key = HtmlEncoder.Default.Encode(info.Key);
         var mark = info.Key switch { "helpdesk" => "HD", "inventory" => "ST", "wallet" => "₤", "documents" => "DOC", "inspections" => "✓", "legacy" => ">_", "hr" => "HR", _ => "APP" };
         var examples = JsonSerializer.Serialize(Examples[info.Key], new JsonSerializerOptions(JsonSerializerDefaults.Web));
